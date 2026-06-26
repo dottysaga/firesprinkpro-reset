@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background: transparent;
+    padding: 20px;
+    color: #1a1a2e;
+  }
+  .card {
+    background: #ffffff;
+    border: 1px solid #dde3ee;
+    border-radius: 16px;
+    padding: 32px 28px;
+    max-width: 420px;
+    margin: 0 auto;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  }
+  .logo { text-align: center; margin-bottom: 20px; }
+  .logo h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo h1 span { color: #e63946; }
+  .logo p { color: #6b7a99; font-size: 13px; margin-top: 4px; }
+  h2 { font-size: 18px; font-weight: 700; margin-bottom: 6px; color: #1a1a2e; }
+  .sub { color: #6b7a99; font-size: 13px; margin-bottom: 24px; }
+  label { display: block; font-size: 13px; font-weight: 600; color: #3a4a6b; margin-bottom: 5px; }
+  .field { margin-bottom: 14px; }
+  .input-wrap { position: relative; }
+  input[type=password], input[type=text] {
+    width: 100%; padding: 10px 40px 10px 12px;
+    border: 1px solid #c8d0e0; border-radius: 8px;
+    font-size: 14px; color: #1a1a2e; background: #f8faff;
+    outline: none; transition: border-color 0.15s;
+  }
+  input:focus { border-color: #4a90d9; background: #fff; }
+  .toggle-btn {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer;
+    color: #8899bb; font-size: 16px; line-height: 1; padding: 0;
+  }
+  .match-msg { font-size: 11px; margin-top: 4px; min-height: 14px; }
+  .match-ok { color: #00a86b; }
+  .match-err { color: #e63946; }
+  .btn {
+    width: 100%; padding: 12px; border: none; border-radius: 10px;
+    font-size: 15px; font-weight: 700; cursor: pointer;
+    background: #4a90d9; color: #fff; margin-top: 6px;
+    transition: background 0.15s;
+  }
+  .btn:hover { background: #357abd; }
+  .btn:disabled { background: #c8d0e0; color: #8899bb; cursor: not-allowed; }
+  .msg { margin-top: 14px; padding: 10px 14px; border-radius: 8px; font-size: 13px; display: none; }
+  .msg.success { background: #e6f9f0; color: #006b3c; border: 1px solid #b3e6cc; display: block; }
+  .msg.error { background: #fce8e8; color: #b00020; border: 1px solid #f5b8b8; display: block; }
+  .spinner { display: none; text-align: center; margin-top: 12px; color: #6b7a99; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <h1>Fire<span>Sprink</span>Pro</h1>
+    <p>Fire Sprinkler Design &amp; Hydraulics</p>
+  </div>
+
+  <div id="formSection">
+    <h2>Reset your password</h2>
+    <p class="sub">Enter and confirm your new password below.</p>
+
+    <div class="field">
+      <label for="newPass">New password</label>
+      <div class="input-wrap">
+        <input type="password" id="newPass" placeholder="At least 6 characters" autocomplete="new-password">
+        <button class="toggle-btn" onclick="toggleVis('newPass', this)" type="button">👁</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="confirmPass">Confirm new password</label>
+      <div class="input-wrap">
+        <input type="password" id="confirmPass" placeholder="Type password again" autocomplete="new-password">
+        <button class="toggle-btn" onclick="toggleVis('confirmPass', this)" type="button">👁</button>
+      </div>
+      <div class="match-msg" id="matchMsg"></div>
+    </div>
+
+    <button class="btn" id="submitBtn" onclick="doReset()" disabled>Set New Password</button>
+    <div class="spinner" id="spinner">Updating password…</div>
+    <div class="msg" id="errorMsg"></div>
+  </div>
+
+  <div class="msg success" id="successSection" style="display:none;margin-top:0">
+    <strong>✅ Password updated successfully!</strong><br><br>
+    You can now open the <strong>FireSprinkPro</strong> app and sign in with your new password.
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // ── Supabase config ──────────────────────────────────────────────────────
+  const SUPABASE_URL  = 'https://izbbmbqbtjltwfdtcezd.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6YmJtYnFidGpsdHdmZHRjZXpkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyMDQ1NTYsImV4cCI6MjA5NTc4MDU1Nn0.UparGMqonb-pPMixEgEWCWbpz7-oMBAzYxawTPdfWUE';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+  // ── Extract token from URL hash ──────────────────────────────────────────
+  // Supabase appends #access_token=...&type=recovery to the redirect URL
+  function getHashParams() {
+    const hash = window.location.hash.substring(1);
+    return Object.fromEntries(hash.split('&').map(p => p.split('=')));
+  }
+
+  const params = getHashParams();
+  const isRecovery = params.type === 'recovery';
+
+  if (!isRecovery) {
+    // Not a recovery link — show error
+    document.getElementById('formSection').style.display = 'none';
+    const err = document.getElementById('errorMsg');
+    err.className = 'msg error';
+    err.style.display = 'block';
+    err.innerHTML = 'This link is invalid or has expired. Please request a new password reset from the FireSprinkPro app.';
+  } else {
+    // Set the session from the recovery token so we can update the password
+    sb.auth.setSession({
+      access_token:  params.access_token,
+      refresh_token: params.refresh_token || ''
+    });
+  }
+
+  // ── Password match checking ──────────────────────────────────────────────
+  function checkMatch() {
+    const p1 = document.getElementById('newPass').value;
+    const p2 = document.getElementById('confirmPass').value;
+    const msg = document.getElementById('matchMsg');
+    const btn = document.getElementById('submitBtn');
+    if (!p2) { msg.textContent = ''; btn.disabled = true; return; }
+    if (p1 === p2 && p1.length >= 6) {
+      msg.className = 'match-msg match-ok';
+      msg.textContent = '✓ Passwords match';
+      btn.disabled = false;
+    } else if (p1 !== p2) {
+      msg.className = 'match-msg match-err';
+      msg.textContent = 'Passwords do not match';
+      btn.disabled = true;
+    } else {
+      msg.className = 'match-msg match-err';
+      msg.textContent = 'Password must be at least 6 characters';
+      btn.disabled = true;
+    }
+  }
+
+  document.getElementById('newPass').addEventListener('input', checkMatch);
+  document.getElementById('confirmPass').addEventListener('input', checkMatch);
+
+  // ── Toggle password visibility ───────────────────────────────────────────
+  function toggleVis(id, btn) {
+    const inp = document.getElementById(id);
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  }
+
+  // ── Submit new password ──────────────────────────────────────────────────
+  async function doReset() {
+    const newPass = document.getElementById('newPass').value;
+    const btn     = document.getElementById('submitBtn');
+    const spinner = document.getElementById('spinner');
+    const errMsg  = document.getElementById('errorMsg');
+
+    btn.disabled = true;
+    spinner.style.display = 'block';
+    errMsg.style.display  = 'none';
+
+    try {
+      const { error } = await sb.auth.updateUser({ password: newPass });
+      if (error) throw error;
+
+      // Success
+      document.getElementById('formSection').style.display  = 'none';
+      document.getElementById('successSection').style.display = 'block';
+    } catch (e) {
+      errMsg.className = 'msg error';
+      errMsg.style.display = 'block';
+      errMsg.textContent = e.message || 'Something went wrong. Please try again.';
+      btn.disabled = false;
+    } finally {
+      spinner.style.display = 'none';
+    }
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlowPro — Email Tracking Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #0d1b2a;
+      color: #ffffff;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    h1 { font-size: 24px; color: #00bfff; }
+    .stats {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: #1a2d42;
+      border-radius: 10px;
+      padding: 16px 24px;
+      flex: 1;
+      text-align: center;
+    }
+    .stat-card .number { font-size: 36px; font-weight: bold; color: #00bfff; }
+    .stat-card .label { font-size: 13px; color: #aac; margin-top: 4px; }
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      align-items: center;
+    }
+    input[type="text"] {
+      padding: 9px 14px;
+      border-radius: 8px;
+      border: 1px solid #2e4a65;
+      background: #0d1b2a;
+      color: #fff;
+      font-size: 14px;
+      flex: 1;
+    }
+    button {
+      padding: 9px 20px;
+      background: #00bfff;
+      color: #0d1b2a;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button.danger {
+      background: #e63946;
+      color: #fff;
+    }
+    button.secondary {
+      background: #1a2d42;
+      color: #00bfff;
+      border: 1px solid #00bfff;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #1a2d42;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    th {
+      background: #0d1b2a;
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 12px;
+      color: #aac;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    td {
+      padding: 11px 14px;
+      font-size: 14px;
+      border-bottom: 1px solid #0d1b2a;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #1e3550; }
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    .badge-new { background: #00bfff22; color: #00bfff; border: 1px solid #00bfff44; }
+    .badge-repeat { background: #ff990022; color: #ff9900; border: 1px solid #ff990044; }
+    .loading { text-align: center; padding: 40px; color: #aac; }
+    .empty { text-align: center; padding: 40px; color: #aac; }
+    .pixel-section {
+      background: #1a2d42;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .pixel-section h2 { font-size: 16px; margin-bottom: 12px; color: #00bfff; }
+    .pixel-section p { font-size: 13px; color: #aac; margin-bottom: 12px; }
+    .pixel-inputs { display: flex; gap: 10px; flex-wrap: wrap; }
+    .pixel-inputs input {
+      flex: 1;
+      min-width: 150px;
+    }
+    .pixel-url {
+      background: #0d1b2a;
+      border: 1px solid #2e4a65;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #00bfff;
+      word-break: break-all;
+      margin-top: 12px;
+      display: none;
+    }
+    .copy-btn {
+      margin-top: 8px;
+      padding: 6px 16px;
+      font-size: 12px;
+    }
+    .refresh-time { font-size: 12px; color: #aac; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🔥 FlowPro — Email Tracking</h1>
+  <span class="refresh-time" id="lastRefresh">Loading...</span>
+</div>
+
+<!-- Stats -->
+<div class="stats">
+  <div class="stat-card">
+    <div class="number" id="totalOpens">—</div>
+    <div class="label">Total Opens</div>
+  </div>
+  <div class="stat-card">
+    <div class="number" id="uniqueOpens">—</div>
+    <div class="label">Unique Contacts</div>
+  </div>
+  <div class="stat-card">
+    <div class="number" id="todayOpens">—</div>
+    <div class="label">Opened Today</div>
+  </div>
+  <div class="stat-card">
+    <div class="number" id="repeatOpens">—</div>
+    <div class="label">Opened Multiple Times</div>
+  </div>
+</div>
+
+<!-- Pixel Generator -->
+<div class="pixel-section">
+  <h2>Generate Tracking Pixel for Email</h2>
+  <p>Fill in the contact details then copy the HTML snippet into your Gmail draft.</p>
+  <div class="pixel-inputs">
+    <input type="text" id="genName" placeholder="Contact Name (e.g. Joe Knowland)">
+    <input type="text" id="genCompany" placeholder="Company (e.g. 315 Fire Protection)">
+    <input type="text" id="genEmail" placeholder="Their email address">
+    <button onclick="generatePixel()">Generate</button>
+  </div>
+  <div class="pixel-url" id="pixelUrl"></div>
+  <button class="copy-btn secondary" id="copyBtn" onclick="copyPixel()" style="display:none">Copy HTML snippet</button>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <input type="text" id="searchBox" placeholder="Search by name, company or email..." oninput="filterTable()">
+  <button onclick="loadData()">↻ Refresh</button>
+  <button class="danger" onclick="clearAll()">Clear All</button>
+</div>
+
+<!-- Table -->
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Contact Name</th>
+      <th>Company</th>
+      <th>Email</th>
+      <th>Opened At</th>
+      <th>Times Opened</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody id="tableBody">
+    <tr><td colspan="7" class="loading">Loading...</td></tr>
+  </tbody>
+</table>
+
+<script>
+  const SUPABASE_URL = 'https://ufmzdvctvmclnzelyspf.supabase.co'
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmbXpkdmN0dm1jbG56ZWx5c3BmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMzIxNDMsImV4cCI6MjA5ODcwODE0M30.A6V7eMRuZ8oWimkM9PIGNZHMrsajQ2ty_crjbFg956A'
+  const TRACK_URL = SUPABASE_URL + '/functions/v1/track'
+
+  let allData = []
+
+  async function loadData() {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/email_opens?select=*&order=opened_at.desc`, {
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer ' + SUPABASE_ANON
+        }
+      })
+      const data = await res.json()
+      allData = data
+      renderTable(data)
+      updateStats(data)
+      document.getElementById('lastRefresh').textContent = 'Last updated: ' + new Date().toLocaleTimeString()
+    } catch (e) {
+      document.getElementById('tableBody').innerHTML = '<tr><td colspan="7" class="empty">Error loading data. Check your connection.</td></tr>'
+    }
+  }
+
+  function updateStats(data) {
+    const total = data.length
+    const unique = new Set(data.map(r => r.contact_id)).size
+    const today = data.filter(r => {
+      const d = new Date(r.opened_at)
+      const now = new Date()
+      return d.toDateString() === now.toDateString()
+    }).length
+    
+    // Count contacts who opened more than once
+    const counts = {}
+    data.forEach(r => { counts[r.contact_id] = (counts[r.contact_id] || 0) + 1 })
+    const repeat = Object.values(counts).filter(c => c > 1).length
+
+    document.getElementById('totalOpens').textContent = total
+    document.getElementById('uniqueOpens').textContent = unique
+    document.getElementById('todayOpens').textContent = today
+    document.getElementById('repeatOpens').textContent = repeat
+  }
+
+  function renderTable(data) {
+    if (!data || data.length === 0) {
+      document.getElementById('tableBody').innerHTML = '<tr><td colspan="7" class="empty">No opens recorded yet. Send your first tracked email!</td></tr>'
+      return
+    }
+
+    // Group by contact_id to count opens
+    const counts = {}
+    data.forEach(r => { counts[r.contact_id] = (counts[r.contact_id] || 0) + 1 })
+
+    // Show most recent open per contact first, then all
+    const rows = data.map((r, i) => {
+      const count = counts[r.contact_id]
+      const isRepeat = count > 1
+      const date = new Date(r.opened_at)
+      const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString()
+      return `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${r.contact_name || '—'}</td>
+          <td>${r.company || '—'}</td>
+          <td>${r.email_address || '—'}</td>
+          <td>${dateStr}</td>
+          <td style="text-align:center">${count}</td>
+          <td><span class="badge ${isRepeat ? 'badge-repeat' : 'badge-new'}">${isRepeat ? 'HOT 🔥' : 'Opened'}</span></td>
+        </tr>`
+    }).join('')
+
+    document.getElementById('tableBody').innerHTML = rows
+  }
+
+  function filterTable() {
+    const q = document.getElementById('searchBox').value.toLowerCase()
+    const filtered = allData.filter(r =>
+      (r.contact_name || '').toLowerCase().includes(q) ||
+      (r.company || '').toLowerCase().includes(q) ||
+      (r.email_address || '').toLowerCase().includes(q)
+    )
+    renderTable(filtered)
+  }
+
+  function generatePixel() {
+    const name = document.getElementById('genName').value.trim()
+    const company = document.getElementById('genCompany').value.trim()
+    const email = document.getElementById('genEmail').value.trim()
+
+    if (!name && !email) {
+      alert('Please enter at least a contact name or email.')
+      return
+    }
+
+    const id = (name + '_' + email).replace(/[^a-z0-9]/gi, '_').toLowerCase()
+    const url = `${TRACK_URL}?id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}&company=${encodeURIComponent(company)}&email=${encodeURIComponent(email)}`
+    const html = `<img src="${url}" width="1" height="1" style="display:none" alt="">`
+
+    document.getElementById('pixelUrl').textContent = html
+    document.getElementById('pixelUrl').style.display = 'block'
+    document.getElementById('copyBtn').style.display = 'inline-block'
+  }
+
+  function copyPixel() {
+    const text = document.getElementById('pixelUrl').textContent
+    navigator.clipboard.writeText(text).then(() => {
+      document.getElementById('copyBtn').textContent = '✓ Copied!'
+      setTimeout(() => { document.getElementById('copyBtn').textContent = 'Copy HTML snippet' }, 2000)
+    })
+  }
+
+  async function clearAll() {
+    if (!confirm('Delete ALL tracking records? This cannot be undone.')) return
+    await fetch(`${SUPABASE_URL}/rest/v1/email_opens?id=neq.00000000-0000-0000-0000-000000000000`, {
+      method: 'DELETE',
+      headers: {
+        'apikey': SUPABASE_ANON,
+        'Authorization': 'Bearer ' + SUPABASE_ANON
+      }
+    })
+    loadData()
+  }
+
+  // Auto refresh every 2 minutes
+  loadData()
+  setInterval(loadData, 120000)
+</script>
+
+</body>
+</html>
